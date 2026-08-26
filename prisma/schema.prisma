@@ -1,0 +1,275 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum BlogPostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum BlogSchemaType {
+  ARTICLE
+  BLOG_POSTING
+  FAQ_PAGE
+}
+
+enum SubmissionKind {
+  LEAD
+  CONTACT
+}
+
+enum PaymentOrderStatus {
+  CREATED
+  PAID
+  VERIFIED
+  FAILED
+}
+
+enum RazorpayWebhookEventStatus {
+  PROCESSING
+  PROCESSED
+  FAILED
+  IGNORED
+  UNMATCHED
+}
+
+enum ProviderOrderCreationStatus {
+  PENDING
+  CREATING
+  CREATED
+  FAILED
+}
+
+enum PaymentAttemptStatus {
+  AUTHORIZED
+  CAPTURED
+  FAILED
+}
+
+enum EmailOutboxStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
+model BlogPost {
+  id                 String         @id @default(cuid())
+  title              String
+  slug               String         @unique
+  excerpt            String         @db.Text
+  contentJson        Json
+  renderedHtml       String         @db.LongText
+  plainText          String         @db.LongText
+  tableOfContents    Json?
+  focusKeyword       String?
+  metaTitle          String?
+  metaDescription    String?
+  canonicalUrl       String?
+  ogTitle            String?
+  ogDescription      String?
+  ogImage            String?
+  twitterTitle       String?
+  twitterDescription String?
+  twitterImage       String?
+  schemaType         BlogSchemaType @default(ARTICLE)
+  featuredImageUrl   String?
+  featuredImageAlt   String?
+  tags               Json
+  categories         Json
+  faqItems           Json?
+  seoScore           Int            @default(0)
+  readabilityScore   Int            @default(0)
+  status             BlogPostStatus @default(DRAFT)
+  publishedAt        DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([slug])
+}
+
+model ContactSubmission {
+  id        String         @id @default(cuid())
+  kind      SubmissionKind
+  source    String
+  name      String
+  email     String
+  phone     String
+  service   String
+  message   String         @db.Text
+  company   String?
+  budget    String?
+  ipAddress String?
+  userAgent String?        @db.Text
+  createdAt DateTime       @default(now())
+
+  @@index([kind, createdAt])
+  @@index([email])
+}
+
+model NewsletterSubscriber {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  source         String    @default("website")
+  ipAddress      String?
+  userAgent      String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  consentAt      DateTime  @default(now())
+  unsubscribedAt DateTime?
+}
+
+model PaymentOrder {
+  id                        String                      @id @default(cuid())
+  service                   String
+  amountMinor               Int
+  subtotalMinor             Int?
+  discountMinor             Int                         @default(0)
+  gstRate                   Decimal?                    @db.Decimal(5, 2)
+  gstAmountMinor            Int                         @default(0)
+  taxableAmountMinor        Int?
+  totalAmountMinor          Int?
+  currency                  String
+  country                   String
+  billingName               String
+  billingEmail              String
+  billingPhone              String
+  billingAddress            String                      @db.Text
+  billingCountry            String?
+  billingState              String?
+  billingGstin              String?
+  billingCompany            String?
+  couponCode                String?
+  couponDiscountType        String?
+  couponDiscountValue       Decimal?                    @db.Decimal(10, 2)
+  providerOrderId           String?                     @unique
+  providerPaymentId         String?                     @unique
+  providerSignature         String?
+  receipt                   String                      @unique
+  idempotencyKey            String?                     @unique
+  requestHash               String?
+  providerCreateStatus      ProviderOrderCreationStatus @default(CREATED)
+  providerCreateAttempts    Int                         @default(0)
+  providerCreateError       String?                     @db.Text
+  taxNote                   String                      @db.Text
+  taxLabel                  String?
+  notes                     Json?
+  status                    PaymentOrderStatus          @default(CREATED)
+  paidAt                    DateTime?
+  verifiedAt                DateTime?
+  orderEmailSentAt          DateTime?
+  paymentSuccessEmailSentAt DateTime?
+  paymentFailedEmailSentAt  DateTime?
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
+  attempts                  PaymentAttempt[]
+
+  @@index([status, createdAt])
+  @@index([billingEmail])
+}
+
+model PaymentAttempt {
+  id                String               @id @default(cuid())
+  paymentOrderId    String
+  provider          String               @default("razorpay")
+  providerOrderId   String
+  providerPaymentId String               @unique
+  providerSignature String?
+  amountMinor       Int
+  currency          String
+  status            PaymentAttemptStatus
+  failureCode       String?
+  failureReason     String?              @db.Text
+  paidAt            DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  paymentOrder      PaymentOrder         @relation(fields: [paymentOrderId], references: [id], onDelete: Cascade)
+
+  @@index([paymentOrderId, createdAt])
+  @@index([provider, providerOrderId])
+}
+
+model RazorpayWebhookEvent {
+  id                     String                     @id @default(cuid())
+  provider               String                     @default("razorpay")
+  eventId                String                     @unique
+  eventType              String
+  status                 RazorpayWebhookEventStatus @default(PROCESSING)
+  providerPaymentId      String?
+  providerOrderId        String?
+  providerInvoiceId      String?
+  providerRefundId       String?
+  providerSubscriptionId String?
+  providerPaymentLinkId  String?
+  providerSettlementId   String?
+  providerDisputeId      String?
+  providerCustomerId     String?
+  payloadHash            String?
+  attemptCount           Int                        @default(1)
+  payload                Json?
+  errorMessage           String?                    @db.Text
+  receivedAt             DateTime                   @default(now())
+  processingStartedAt    DateTime?
+  processedAt            DateTime?
+  processingMs           Int?
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+
+  @@unique([provider, eventId])
+  @@index([eventType, receivedAt])
+  @@index([status, receivedAt])
+  @@index([providerPaymentId])
+  @@index([providerOrderId])
+}
+
+model EmailOutbox {
+  id               String            @id @default(cuid())
+  deduplicationKey String            @unique
+  template         String
+  recipientType    String
+  recipient        String
+  subject          String
+  payloadJson      Json
+  status           EmailOutboxStatus @default(PENDING)
+  attemptCount     Int               @default(0)
+  availableAt      DateTime          @default(now())
+  lockedAt         DateTime?
+  sentAt           DateTime?
+  lastError        String?           @db.Text
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([status, availableAt])
+}
+
+model AdminSession {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  lastUsedAt DateTime  @default(now())
+  revokedAt  DateTime?
+  ipAddress  String?
+  userAgent  String?   @db.Text
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([expiresAt, revokedAt])
+}
+
+model RateLimitBucket {
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([expiresAt])
+}

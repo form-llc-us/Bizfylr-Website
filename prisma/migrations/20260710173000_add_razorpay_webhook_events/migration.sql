@@ -1,0 +1,31 @@
+-- CreateTable
+CREATE TABLE `RazorpayWebhookEvent` (
+    `id` VARCHAR(191) NOT NULL,
+    `eventId` VARCHAR(191) NOT NULL,
+    `eventType` VARCHAR(191) NOT NULL,
+    `status` ENUM('PROCESSING', 'PROCESSED', 'FAILED', 'IGNORED') NOT NULL DEFAULT 'PROCESSING',
+    `providerPaymentId` VARCHAR(191) NULL,
+    `providerOrderId` VARCHAR(191) NULL,
+    `providerInvoiceId` VARCHAR(191) NULL,
+    `providerRefundId` VARCHAR(191) NULL,
+    `providerSubscriptionId` VARCHAR(191) NULL,
+    `providerPaymentLinkId` VARCHAR(191) NULL,
+    `providerSettlementId` VARCHAR(191) NULL,
+    `providerDisputeId` VARCHAR(191) NULL,
+    `providerCustomerId` VARCHAR(191) NULL,
+    `payload` JSON NOT NULL,
+    `errorMessage` TEXT NULL,
+    `receivedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `processingStartedAt` DATETIME(3) NULL,
+    `processedAt` DATETIME(3) NULL,
+    `processingMs` INTEGER NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `RazorpayWebhookEvent_eventId_key`(`eventId`),
+    INDEX `RazorpayWebhookEvent_eventType_receivedAt_idx`(`eventType`, `receivedAt`),
+    INDEX `RazorpayWebhookEvent_status_receivedAt_idx`(`status`, `receivedAt`),
+    INDEX `RazorpayWebhookEvent_providerPaymentId_idx`(`providerPaymentId`),
+    INDEX `RazorpayWebhookEvent_providerOrderId_idx`(`providerOrderId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
